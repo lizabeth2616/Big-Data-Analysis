@@ -1,0 +1,71 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: spark_postgres
+    environment:
+      POSTGRES_DB: bigdata_lab
+      POSTGRES_USER: student
+      POSTGRES_PASSWORD: student123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./mock_data:/mock_data
+      - ./sql:/sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U student -d bigdata_lab"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - spark_network
+
+  spark:
+    image: jupyter/pyspark-notebook:spark-3.5.0
+    container_name: spark_jupyter
+    ports:
+      - "8888:8888"
+      - "4040:4040"
+    environment:
+      JUPYTER_TOKEN: "spark123"
+    volumes:
+      - ./mock_data:/home/jovyan/mock_data
+      - ./notebooks:/home/jovyan/notebooks
+      - ./jars:/home/jovyan/jars
+    command: start-notebook.sh --NotebookApp.token='spark123' --NotebookApp.password=''
+    networks:
+      - spark_network
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: spark_clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      CLICKHOUSE_DB: reports
+      CLICKHOUSE_USER: student
+      CLICKHOUSE_PASSWORD: student123
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    networks:
+      - spark_network
+
+  mongodb:
+    image: mongo:7.0
+    container_name: spark_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - spark_network
+
+volumes:
+  postgres_data:
+  clickhouse_data:
+  mongodb_data:
+
+networks:
+  spark_network:
+    driver: bridge
