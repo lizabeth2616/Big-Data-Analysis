@@ -26,20 +26,6 @@ laba2_spark/
 
 ---
 
-## Технологический стек
-
-| Технология | Версия | Назначение |
-|------------|--------|------------|
-| [Apache Spark](https://spark.apache.org/) | 3.5.0 | Распределённая обработка данных |
-| [PySpark](https://spark.apache.org/docs/latest/api/python/) | 3.5.0 | Python API для Spark |
-| [PostgreSQL](https://www.postgresql.org/) | 15 | Реляционное хранилище (модель "Звезда") |
-| [ClickHouse](https://clickhouse.com/) | latest | Колоночная аналитическая СУБД |
-| [MongoDB](https://www.mongodb.com/) | 7.0 | Документоориентированная NoSQL |
-| [Jupyter Notebook](https://jupyter.org/) | — | Интерактивная среда разработки |
-| [Docker](https://www.docker.com/) | — | Контейнеризация сервисов |
-
----
-
 ## Модель данных "Звезда" (PostgreSQL)
 
 ```
