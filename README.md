@@ -99,7 +99,7 @@ UNION ALL SELECT 'fact_sales', COUNT(*) FROM fact_sales;
 | dim_seller | 1000 |
 | dim_product | 1000 |
 | dim_date | 364 |
-| fact_sales | 10000 |
+| fact_sales | 1000 |
 
 ## Аналитические запросы
 
