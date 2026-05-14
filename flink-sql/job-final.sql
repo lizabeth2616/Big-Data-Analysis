@@ -1,4 +1,4 @@
-﻿SET 'execution.checkpointing.interval' = '10 s';
+SET 'execution.checkpointing.interval' = '10 s';
 SET 'table.exec.mini-batch.enabled' = 'true';
 SET 'table.exec.mini-batch.allow-latency' = '2 s';
 SET 'table.exec.mini-batch.size' = '5000';
