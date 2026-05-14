@@ -1,234 +1,148 @@
-﻿# Лабораторная работа №1
+﻿# Лабораторная работа №3: Streaming Processing с Apache Flink
 
-**Нормализация данных зоомагазина в аналитическую модель "Снежинка"**
+## Цель
+Реализация потоковой обработки данных с помощью Apache Flink: чтение из Kafka, трансформация в модель "звезда" и запись в PostgreSQL.
 
----
-
-##  Описание проекта
-
-В рамках лабораторной работы выполнена трансформация исходных данных о продажах товаров для домашних питомцев из денормализованной структуры в аналитическую модель данных "Снежинка" (Snowflake Schema).
-
-Модель позволяет эффективно анализировать продажи, поведение покупателей, популярность товаров и другие бизнес-метрики.
-
----
-
-##  Модель данных "Снежинка"
+## Структура проекта
 
 ```
-
-    ┌──────────────────────┐
-    │     DIM_DATE         │
-    │──────────────────────│
-    │ PK date_key          │
-    │    full_date         │
-    │    year              │
-    │    quarter           │
-    │    month             │
-    │    month_name        │
-    │    day               │
-    │    day_of_week       │
-    │    day_name          │
-    └──────────┬───────────┘
-               │
-               │ FK
-               │
-    ┌──────────┴───────────┐         ┌──────────────────────┐         ┌──────────────────────┐
-    │                      │         │     DIM_CUSTOMER     │         │     DIM_SELLER       │
-    │                      │         │──────────────────────│         │──────────────────────│
-    │                      │    ┌────│ PK customer_key      │         │ PK seller_key        │
-    │                      │    │    │    customer_id       │         │    seller_id         │
-    │                      │    │    │    first_name        │         │    first_name        │
-    │                      │    │    │    last_name         │         │    last_name         │
-    │     FACT_SALE        │    │    │    age               │         │    email             │
-    │                      │    │    │    email             │         │    country           │
-    │──────────────────────│    │    │    country           │         │    postal_code       │
-    │ PK sale_id           │    │    │    postal_code       │         └──────────────────────┘
-    │ FK date_key          │────┘    │ FK pet_key           │
-    │ FK customer_key      │─────────│──────────────────────│
-    │ FK seller_key        │─────────│──────────────────────│         ┌──────────────────────┐
-    │ FK product_key       │    │    └──────────────────────┘         │     DIM_STORE        │
-    │ FK store_key         │    │                                     │──────────────────────│
-    │    sale_quantity     │    │    ┌──────────────────────┐         │ PK store_key         │
-    │    sale_total_price  │    │    │     DIM_PET         │         │    store_name        │
-    └──────────────────────┘    │    │──────────────────────│         │    store_location    │
-                                │    │ PK pet_key           │         │    store_city        │
-                                │    │    pet_type          │         │    store_state       │
-                                │    │    pet_name          │         │    store_country     │
-                                │    │    pet_breed         │         │    store_phone       │
-                                │    └──────────────────────┘         │    store_email       │
-                                │                                     └──────────────────────┘
-                                │
-                                │    ┌──────────────────────┐         ┌──────────────────────┐
-                                │    │    DIM_PRODUCT      │         │   DIM_SUPPLIER      │
-                                └────│──────────────────────│    ┌────│──────────────────────│
-                                     │ PK product_key       │    │    │ PK supplier_key      │
-                                     │    product_id        │    │    │    supplier_name     │
-                                     │    product_name      │    │    │    supplier_contact  │
-                                     │    product_category  │    │    │    supplier_email    │
-                                     │    product_price     │    │    │    supplier_phone    │
-                                     │    product_weight    │    │    │    supplier_address  │
-                                     │    product_color     │    │    │    supplier_city     │
-                                     │    product_size      │    │    │    supplier_country  │
-                                     │    product_brand     │    │    └──────────────────────┘
-                                     │    product_material  │    │
-                                     │    product_description│   │
-                                     │    product_rating    │    │
-                                     │    product_reviews   │    │
-                                     │    product_release   │    │
-                                     │    product_expiry    │    │
-                                     │    pet_category      │    │
-                                     │ FK supplier_key      │────┘
-                                     └──────────────────────┘
+flink-kafka-lab/
+├── docker-compose.yml          # Docker-окружение (PostgreSQL, Kafka, Flink)
+├── data/                       # Исходные CSV-файлы
+│   ├── MOCK_DATA_1.csv         # 1000 записей
+│   ├── MOCK_DATA_2.csv         # 1000 записей
+│   ├── MOCK_DATA_3.csv         # 1000 записей
+│   ├── MOCK_DATA_4.csv         # 1000 записей
+│   ├── MOCK_DATA_5.csv         # 1000 записей
+│   ├── MOCK_DATA_6.csv         # 1000 записей
+│   ├── MOCK_DATA_7.csv         # 1000 записей
+│   ├── MOCK_DATA_8.csv         # 1000 записей
+│   ├── MOCK_DATA_9.csv         # 1000 записей
+│   └── MOCK_DATA_10.csv        # 1000 записей
+├── kafka-producer/             # Приложение для отправки данных в Kafka
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   └── producer.py
+├── flink-sql/                  # Flink SQL Job
+│   ├── Dockerfile
+│   └── job-final.sql           # Основной SQL-скрипт трансформации
+├── sql/                        # SQL-скрипты для инициализации БД
+│   └── init.sql
+└── README.md                   # Документация
 ```
 
-###  Связи между таблицами
-
-| Родительская таблица | Дочерняя таблица | Тип связи |
-|---------------------|-----------------|-----------|
-| dim_date | fact_sale | 1:N (одна дата - много продаж) |
-| dim_customer | fact_sale | 1:N (один покупатель - много покупок) |
-| dim_seller | fact_sale | 1:N (один продавец - много продаж) |
-| dim_product | fact_sale | 1:N (один товар - много продаж) |
-| dim_store | fact_sale | 1:N (один магазин - много продаж) |
-| dim_pet | dim_customer | 1:N (один питомец - у многих покупателей) |
-| dim_supplier | dim_product | 1:N (один поставщик - много товаров) |
-
-###  Статистика данных
-
-| Таблица | Тип | Количество записей |
-|---------|-----|-------------------|
-| raw_mock_data | Исходные данные | 10,000 |
-| dim_date | Измерение | 364 |
-| dim_pet | Измерение | 9,321 |
-| dim_customer | Измерение | 1,000 |
-| dim_seller | Измерение | 1,000 |
-| dim_product | Измерение | 1,000 |
-| dim_store | Измерение | 9,688 |
-| dim_supplier | Измерение | 10,000 |
-| fact_sale | Факт | 10,000 |
-
----
-
-##  Структура проекта
+## Архитектура
 
 ```
-bigdata-snowflake/
-├── docker-compose.yml              # Docker конфигурация PostgreSQL
-├── mock_data/                      # Исходные CSV файлы
-│   ├── MOCK_DATA_1.csv
-│   ├── MOCK_DATA_2.csv
-│   ├── MOCK_DATA_3.csv
-│   ├── MOCK_DATA_4.csv
-│   ├── MOCK_DATA_5.csv
-│   ├── MOCK_DATA_6.csv
-│   ├── MOCK_DATA_7.csv
-│   ├── MOCK_DATA_8.csv
-│   ├── MOCK_DATA_9.csv
-│   └── MOCK_DATA_10.csv
-├── sql/                            # SQL скрипты
-│   ├── 01_create_raw_table.sql     # Создание сырой таблицы
-│   ├── 02_create_dimensions.sql    # DDL таблиц измерений и фактов
-│   ├── 03_fill_dimensions_v2.sql   # DML заполнение измерений
-│   ├── 04_fill_fact.sql            # DML заполнение фактов
-│   ├── 05_verify.sql               # Проверка результатов
-│   └── tests/                      # Тестовые запросы
-│       ├── 00_check_all_scripts.sql
-│       ├── 01_test_relationships.sql
-│       ├── 02_analytical_queries.sql
-│       └── 03_check_dimensions.sql
-└── README.md                       # Документация проекта
+CSV → Kafka Producer → Kafka Topic → Flink SQL (streaming) → PostgreSQL (Star Schema)
 ```
 
----
+## Модель данных (Star Schema)
 
-##  Быстрый старт
+| Таблица | Тип | Описание |
+|---------|-----|----------|
+| dim_customer | Измерение | Информация о покупателях |
+| dim_seller | Измерение | Информация о продавцах |
+| dim_product | Измерение | Информация о товарах |
+| dim_date | Измерение | Измерение дат |
+| fact_sales | Факт | Транзакции продаж |
 
-### Шаг 1: Запуск PostgreSQL
+## Предварительные требования
 
-```bash
+- Docker и Docker Compose
+- 10 CSV-файлов `MOCK_DATA_*.csv` в папке `data/` (по 1000 строк каждый)
+
+## Запуск проекта
+
+### 1. Запуск всех сервисов
+
+```powershell
 docker-compose up -d
 ```
 
-### Шаг 2: Создание таблиц
+### 2. Ожидание отправки данных в Kafka
 
-```bash
-docker exec -i bigdata_postgres psql -U student -d bigdata_lab -f /sql/01_create_raw_table.sql
-```
-
-### Шаг 3: Загрузка данных из CSV
+Producer автоматически запускается и отправляет все CSV-файлы в Kafka. Дождитесь завершения (около 2 минут):
 
 ```powershell
-2..10 | ForEach-Object { 
-    $file = "mock_data\MOCK_DATA_$_.csv"
-    Get-Content $file | Select-Object -Skip 1 | 
-    docker exec -i bigdata_postgres psql -U student -d bigdata_lab -c "COPY raw_mock_data FROM STDIN WITH CSV"
-}
+docker-compose logs kafka-producer | Select-String "All files processed"
 ```
 
-### Шаг 4: Создание схемы "Снежинка"
+### 3. Запуск Flink SQL Job
 
-```bash
-docker exec -i bigdata_postgres psql -U student -d bigdata_lab -f /sql/02_create_dimensions.sql
+```powershell
+docker cp flink-sql/job-final.sql jobmanager:/opt/flink/job-final.sql
+docker exec -it jobmanager /opt/flink/bin/sql-client.sh -D execution.runtime-mode=STREAMING -f /opt/flink/job-final.sql
 ```
 
-### Шаг 5: Заполнение измерений и фактов
+### 4. Ожидание обработки данных
 
-```bash
-docker exec -i bigdata_postgres psql -U student -d bigdata_lab -f /sql/03_fill_dimensions_v2.sql
-docker exec -i bigdata_postgres psql -U student -d bigdata_lab -f /sql/04_fill_fact.sql
+Job обрабатывает данные в режиме streaming. Дождитесь 3-5 минут.
+
+### 5. Проверка результатов
+
+```powershell
+docker exec -it postgres psql -U bigdata_user -d bigdata_db -c "
+SELECT 'dim_customer' as table_name, COUNT(*) as records FROM dim_customer
+UNION ALL SELECT 'dim_seller', COUNT(*) FROM dim_seller
+UNION ALL SELECT 'dim_product', COUNT(*) FROM dim_product
+UNION ALL SELECT 'dim_date', COUNT(*) FROM dim_date
+UNION ALL SELECT 'fact_sales', COUNT(*) FROM fact_sales;
+"
 ```
 
-### Шаг 6: Проверка результата
+## Ожидаемые результаты
 
-```bash
-docker exec -i bigdata_postgres psql -U student -d bigdata_lab -f /sql/05_verify.sql
-docker exec -i bigdata_postgres psql -U student -d bigdata_lab -f /sql/tests/00_check_all_scripts.sql
-```
+| Таблица | Количество записей |
+|---------|-------------------|
+| dim_customer | 1000 |
+| dim_seller | 1000 |
+| dim_product | 1000 |
+| dim_date | 364 |
+| fact_sales | 10000 |
 
----
+## Аналитические запросы
 
-##  Примеры аналитических запросов
-
-### 1. Продажи по кварталам
-
+### Продажи по странам
 ```sql
-SELECT 
-    d.year,
-    d.quarter,
-    COUNT(*) as total_sales,
-    SUM(f.sale_total_price) as revenue,
-    ROUND(AVG(f.sale_total_price), 2) as avg_check
-FROM fact_sale f
-JOIN dim_date d ON f.date_key = d.date_key
-GROUP BY d.year, d.quarter
-ORDER BY d.year, d.quarter;
-```
-
-### 2. Топ-5 категорий товаров
-
-```sql
-SELECT 
-    p.product_category,
-    COUNT(*) as sales_count,
-    SUM(f.sale_total_price) as revenue,
-    ROUND(AVG(p.product_rating), 2) as avg_rating
-FROM fact_sale f
-JOIN dim_product p ON f.product_key = p.product_key
-GROUP BY p.product_category
+SELECT dc.country, COUNT(*) as orders, SUM(fs.total_price) as revenue
+FROM fact_sales fs
+JOIN dim_customer dc ON fs.customer_id = dc.customer_id
+GROUP BY dc.country
 ORDER BY revenue DESC
-LIMIT 5;
+LIMIT 10;
 ```
 
-### 3. Топ-5 покупателей
-
+### Продажи по категориям товаров
 ```sql
-SELECT 
-    c.first_name || ' ' || c.last_name as customer,
-    COUNT(*) as purchases,
-    SUM(f.sale_total_price) as total_spent
-FROM fact_sale f
-JOIN dim_customer c ON f.customer_key = c.customer_key
-GROUP BY c.first_name, c.last_name
-ORDER BY total_spent DESC
-LIMIT 5;
+SELECT dp.category, COUNT(*) as sales_count, SUM(fs.total_price) as revenue
+FROM fact_sales fs
+JOIN dim_product dp ON fs.product_id = dp.product_id
+GROUP BY dp.category
+ORDER BY revenue DESC;
 ```
+
+## Мониторинг
+
+- **Flink Dashboard**: http://localhost:8081
+- **PostgreSQL**: `localhost:5432` (пользователь: `bigdata_user`, пароль: `bigdata_pass`, база: `bigdata_db`)
+
+## Остановка
+
+```powershell
+# Остановка с сохранением данных
+docker-compose stop
+
+# Полная остановка с удалением данных
+docker-compose down -v
+```
+
+## Перезапуск с нуля
+
+```powershell
+docker-compose down -v
+docker-compose up -d
+# Дождаться отправки данных
+docker-compose logs kafka-producer | Select-String "All files processed"
+# Запустить Flink Job
+docker exec -it jobmanager /opt/flink/bin/sql-client.sh -D execution.runtime-mode=STREAMING -f /opt/flink/job-final.sql

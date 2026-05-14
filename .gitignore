@@ -1,16 +1,13 @@
-﻿# Python
+﻿# Docker volumes
+postgres_data/
+
+# Python
 __pycache__/
 *.pyc
-*.pyo
-*.egg-info/
-
-# Docker
-# (docker-compose.yml оставляем)
 
 # IDE
-.vscode/
+.vs/
 .idea/
 
-# OS
-.DS_Store
-Thumbs.db
+# Временные файлы
+*.log
