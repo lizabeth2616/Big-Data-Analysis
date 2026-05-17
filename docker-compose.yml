@@ -52,7 +52,7 @@
       DATA_DIR: /app/data
 
   jobmanager:
-    build: ./flink-sql
+    build: ./flink-job
     container_name: jobmanager
     ports:
       - "8081:8081"
@@ -61,10 +61,10 @@
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: jobmanager
-        parallelism.default: 2
+        parallelism.default: 1
 
   taskmanager:
-    build: ./flink-sql
+    build: ./flink-job
     container_name: taskmanager
     depends_on:
       - jobmanager
@@ -74,7 +74,7 @@
         FLINK_PROPERTIES=
         jobmanager.rpc.address: jobmanager
         taskmanager.numberOfTaskSlots: 4
-        parallelism.default: 2
+        parallelism.default: 1
 
 volumes:
   postgres_data:

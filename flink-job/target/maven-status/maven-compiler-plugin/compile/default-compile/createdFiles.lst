@@ -1,0 +1,8 @@
+com\bigdata\flink\model\DimDate.class
+com\bigdata\flink\KafkaToStarSchema$1.class
+com\bigdata\flink\model\DimSeller.class
+com\bigdata\flink\model\DimCustomer.class
+com\bigdata\flink\model\DimProduct.class
+com\bigdata\flink\model\SaleEvent.class
+com\bigdata\flink\model\FactSale.class
+com\bigdata\flink\KafkaToStarSchema.class
